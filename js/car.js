@@ -53,7 +53,7 @@ function derive(car,rd){
  D.heatIdx=pw.heat*D.kW/60/D.coolCap*(D.em?D.em.heatF:1);
  // ---- reliability ----
  let rel=1;const relOf={};
- for(const c of ['chassis','power','susp','brakes','cooling']){const r=P(c).rel*(1-.02*(age[c]||0));relOf[c]=r;rel*=r;}
+ for(const c of ['chassis','power','susp','brakes','cooling']){const r=P(c).rel*(1-.02*(age[c]||0))*(c==='susp'?1-.03*(car.crash||0):1);relOf[c]=r;rel*=r;} // barrier hits bend suspension (v2.2)
  const sfF=Math.pow(1.5/clamp(D.sf,.6,3),2.2);
  let extra=st.failP;if(D.em){if(D.em.floats)extra+=.06;if(D.em.knock>1)extra+=.03*(D.em.knock-1);}
  relOf.struct=1-st.failP;
@@ -68,11 +68,15 @@ function derive(car,rd){
  return D;
 }
 function latG(D,v,use=1){return D.mu*use*(1+.5*RHO*D.ClA*v*v/(D.m*G));}
-function cornerV(D,k,use,grip){ // v^2 = mu g / (k - mu rho ClA / 2m)
- if(k<1e-4)return 1e9;
- let mu=D.mu*use*grip;if(1/k<14)mu*=D.tight;
- const den=k-mu*.5*RHO*D.ClA/D.m;
- return den<=0?1e9:Math.sqrt(mu*G/den);
+function cornerV(D,k,use,grip,kv,cs){ // flat: v^2 = mu g / (k - mu rho ClA / 2m)
+ // with elevation: m v² k = μ (m g cosθ + m v² κv + ½ρC_L A v²)  ⇒  v² = μ g cosθ / (k − μ κv − μ ρ C_L A / 2m)
+ // κv<0 (crest) shrinks the limit, κv>0 (compression) raises it. On a crest the car also must stay on the ground:
+ // N ≥ 10 % of static ⇒ v² (−κv − ρC_L A/2m) ≤ 0.9 g cosθ
+ kv=kv||0;cs=cs==null?1:cs;let vc=1e9;
+ if(k>=1e-4){let mu=D.mu*use*grip;if(1/k<14)mu*=D.tight;
+  const den=k-mu*kv-mu*.5*RHO*D.ClA/D.m;vc=den<=0?1e9:Math.sqrt(mu*G*cs/den);}
+ if(kv<0){const d2=-kv-.5*RHO*D.ClA/D.m;if(d2>0)vc=Math.min(vc,Math.sqrt(.9*G*cs/d2));}
+ return vc;
 }
 /* wheel torque curve for the 3D car & dyno: N·m at the engine, scaled to the derived power */
 function engTorque(D,rpm){if(D.ice){return D.em.T(rpm)*D.kW/D.em.peakKW;}const base=4000,Tm=D.kW*1000/(base*2*Math.PI/60);return rpm<=base?Tm:rpm<D.redline?Tm*base/rpm:0;}

@@ -18,6 +18,9 @@ const Crew=(()=>{
   slow:[['priya','Fine lap, but the sim-driver is still faster in this car. Look at minimum corner speeds in Analytics.']],
   garage:[['theo','Reminder: every gram is a gram we have to accelerate. Twice. Every corner.'],['lena','Downforce is free grip… paid for in drag. Nothing is free. Except pizza at design review.'],['marcus','Restrictor\'s 20 mm. We can\'t add air, only use it better: tune runners and the exhaust.'],['priya','Tire window first, everything else second. Cold tires are hockey pucks.']],
   start:[['priya','Lights out! Smooth hands, fast car.'],['marcus','Remember: shift before the limiter, not after the regret.']],
+  limits:[['priya','All four wheels over the white line. That\'s a second, and the stewards have no sense of humour. Kerbs are outside the track, so treat them like lava.'],['theo','Track limits. The shortest way round is only legal if your tyres stay on the paint.']],
+  wall:[['theo','We hit the wall. Only the speed INTO the wall matters: glancing blows scrub speed, square hits bend A-arms. I\'m adding it to the reliability spreadsheet.'],['priya','Barrier contact! Use the runoff, that\'s what it\'s for.']],
+  crest:[['lena','Over that crest the car went light. Fewer newtons on the tyres = less grip. Brake after it lands.']],
   gate:[['theo','Sign-off time. The Chief has a red pen and she is not afraid to use it.']]};
  function say(ev,kind){let L=LINES[ev];if(!L)return;if(!Array.isArray(L))L=L[kind];if(!L||!L.length)return;const[w,t]=pick(L);show(w,t);}
  function show(w,t,ms=5200){const m=CREW[w];const d=document.createElement('div');d.className='crew-toast';d.innerHTML=`<span class="cav" style="background:${m.c}">${m.e}</span><div><b>${m.n}</b> <span class="mut small">${m.r}</span><div>${t}</div></div>`;document.body.appendChild(d);

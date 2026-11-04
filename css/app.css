@@ -179,3 +179,7 @@ table.kb{width:100%;border-collapse:collapse}table.kb td,table.kb th{padding:5px
 .kbk{min-width:110px;background:var(--card2);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-weight:700;font-family:ui-monospace,Menlo,monospace}
 .kbk:hover{border-color:#5b6b85}.kbk.cap{background:var(--amb);color:#111;border-color:var(--amb)}
 .kbbtn{background:none;border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--mut)}
+/* v2.2 track limits warning */
+#drive .d-limits{position:absolute;top:24%;left:50%;transform:translateX(-50%);padding:8px 18px;border-radius:10px;font:800 20px sans-serif;letter-spacing:.02em;background:rgba(120,10,10,.85);color:#fff;border:2px solid #ff4d4d;opacity:0;transition:opacity .12s;pointer-events:none;white-space:nowrap}
+#drive .d-limits.show{opacity:1}
+#drive .d-limits.warn{background:rgba(70,50,10,.8);border-color:#ffb020;color:#ffe2a8;font-size:15px}

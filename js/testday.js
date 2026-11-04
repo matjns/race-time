@@ -6,7 +6,8 @@ function rTest(a){
  const D=curD();
  a.innerHTML=`<div class="row" style="margin-bottom:12px"><div><h1>Test Day & Engineering Challenges</h1><div class="sub" style="margin:0">Drive the car yourself in 3D, or let the sim-driver run time-accelerated tests. Challenge targets are checked against telemetry.</div></div><span class="sp"></span><button class="btn" id="back">← Garage</button><button class="btn pri" id="toComp">Enter competition →</button></div>
  <div class="card hero" style="margin-bottom:14px"><div class="row" style="flex-wrap:wrap;gap:10px"><h2 style="margin:0">🏎 Drive in 3D</h2><span class="small mut" id="tdKeys">${Keys.short()}</span> <button class="kbbtn" data-keys>⌨ Controls</button><span class="sp"></span>
-  <label class="small"><input type="checkbox" id="oG" ${tdOpt.ghost?'checked':''}> Last season's ghost</label><label class="small"><input type="checkbox" id="oA" ${tdOpt.ai?'checked':''}> Sim-driver rival car</label><label class="small"><input type="checkbox" id="oM" ${S.drive.manual?'checked':''}> Manual gears</label></div>
+  <label class="small"><input type="checkbox" id="oG" ${tdOpt.ghost?'checked':''}> Last season's ghost</label><label class="small"><input type="checkbox" id="oA" ${tdOpt.ai?'checked':''}> Sim-driver rival car</label><label class="small"><input type="checkbox" id="oM" ${S.drive.manual?'checked':''}> Manual gears</label><label class="small" title="Low red/white walls a few metres off the track edge. Hitting them costs speed, and hard hits damage the suspension."><input type="checkbox" id="oB" ${S.drive.barriers?'checked':''}> Barriers</label></div>
+  <details class="small mut" style="margin-top:6px"><summary>Track limits rule (v2.2)</summary>${TL_RULE}</details>
   <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${DRIVE_TRACKS.map(([k,l,d])=>`<button class="btn ${k==='autox'?'pri':''}" data-drive="${k}" title="${d}">${l}${S.laps&&S.laps[k]?` <span class="small mut">PB ${fmtT(S.laps[k].time)}</span>`:''}</button>`).join('')}</div>
   <div id="chiefBox" style="margin-top:12px">${tdLast?debriefPrompt():''}</div></div>
  <div class="race"><div class="card"><div class="row small mut" style="margin-bottom:6px">Sim-driver tests (time-accelerated)</div><div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${Object.entries(TESTS).map(([k,t])=>`<button class="btn sm" data-t="${k}" title="${t.d}">${t.l}</button>`).join('')}</div><div id="vh"></div></div>
@@ -16,7 +17,7 @@ function rTest(a){
  VIEW=Viewer($('#vh'),$('#th'));
  a.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>runTest(b.dataset.t));
  a.querySelectorAll('[data-drive]').forEach(b=>b.onclick=()=>startDrive(b.dataset.drive));
- $('#oG').onchange=e=>tdOpt.ghost=e.target.checked;$('#oA').onchange=e=>tdOpt.ai=e.target.checked;$('#oM').onchange=e=>{S.drive.manual=e.target.checked;save();};
+ $('#oG').onchange=e=>tdOpt.ghost=e.target.checked;$('#oA').onchange=e=>tdOpt.ai=e.target.checked;$('#oM').onchange=e=>{S.drive.manual=e.target.checked;save();};$('#oB').onchange=e=>{S.drive.barriers=e.target.checked;save();};
  a.querySelector('[data-keys]').onclick=()=>Keys.open();
  $('#back').onclick=()=>go('garage');$('#toComp').onclick=()=>go('comp');
  bindDebrief();renderChallenges(D);
@@ -34,7 +35,7 @@ function startDrive(trk,extra){const D=curD();const ghost=tdOpt.ghost?((S.ghosts
    if(info.then==='anal'&&last){Analytics.st.A=last;Analytics.st.B=tdLast.R;Analytics.st.zone=null;go('analytics');return;}
    if(S.screen==='test')rTest($('#app'));}},extra||{}));}
 /* driven laps feed the engineering challenges */
-function driveFeed(L,D){const tr=TR[L.track];const zone=lbl=>tr.zones.find(z=>z.label===lbl);const msgs=[];
+function driveFeed(L,D){const tr=TR[L.track];if(L.invalid){toast('Invalid lap (track limits): it does not count for challenges.',3500);return;}const zone=lbl=>tr.zones.find(z=>z.label===lbl);const msgs=[];
  if(L.track==='flow'){const z=zone('T3'),b=zone('Back straight');if(z){let mn=1e9,mx=0;for(let i=z.i0;i<=z.i1;i++)mn=Math.min(mn,L.ch.v[i]);if(b)for(let i=b.i0;i<=b.i1;i++)mx=Math.max(mx,L.ch.v[i]);msgs.push(...updateChallenges('flow',{t3:mn,vmax:mx,driven:1},D));}}
  if(L.track==='drag'||L.track==='accel'){const i=L.ch.v.findIndex(v=>v>=26.822);if(i>0&&L.track==='drag'){msgs.push(...updateChallenges('drag',{z60:L.ch.t[i]-(L.ch.t[0]||0),driven:1},D));}}
  msgs.forEach((m,i)=>setTimeout(()=>toast(m,4500),i*600));}

@@ -1,13 +1,17 @@
 /* ================= LAP SIMULATION ================= */
 function simLap(D,tr,o){
  const pts=tr.pts,n=pts.length,use=o.use,grip=o.grip||1,pm=o.pm||1,muU=D.mu*use*grip;
- const vl=new Float64Array(n);for(let i=0;i<n;i++)vl[i]=Math.min(cornerV(D,pts[i].k,use,grip),D.vGear*.995);
+ // Elevation (v2.2): p.cs = cosθ, p.sn = sinθ (uphill +), p.kv = vertical curvature (crest −, dip +)
+ const P0={cs:1,sn:0,kv:0};const E=i=>pts[i].cs==null?P0:pts[i];
+ const vl=new Float64Array(n);for(let i=0;i<n;i++){const e=E(i);vl[i]=Math.min(cornerV(D,pts[i].k,use,grip,e.kv,e.cs),D.vGear*.995);}
  const Fd=vv=>vv>=D.vGear*.995?0:D.kW*1000*pm/Math.max(vv,D.vKnee);
- const longAvail=(vv,k)=>{const N=D.m*G+.5*RHO*D.ClA*vv*vv,fm=muU*N,lat=D.m*vv*vv*k;return Math.sqrt(Math.max(0,fm*fm-lat*lat));};
+ // tyre normal load: N = m (g cosθ + v² κv) + ½ ρ C_L A v²   (crest: less grip, compression: more)
+ const Nof=(vv,e)=>Math.max(0,D.m*(G*e.cs+vv*vv*e.kv)+.5*RHO*D.ClA*vv*vv);
+ const longAvail=(vv,i)=>{const fm=muU*Nof(vv,E(i)),lat=D.m*vv*vv*pts[i].k;return Math.sqrt(Math.max(0,fm*fm-lat*lat));};
  const pass=v0=>{const v=new Float64Array(n);v[0]=Math.min(v0,vl[0]);
-  for(let i=0;i<n-1;i++){const vv=v[i],d=pts[i].d;const F=Math.min(Fd(vv),longAvail(vv,pts[i].k)*D.rear*1.2*(vv<12?D.launchF||1:1));
-   const a=(F-.5*RHO*D.CdA*vv*vv-.015*D.m*G)/D.mEff;v[i+1]=Math.min(vl[i+1],Math.sqrt(Math.max(.04,vv*vv+2*a*d)));}
-  if(!o.noBrakeEnd)for(let i=n-2;i>=0;i--){const vv=v[i+1],d=pts[i].d;const dec=(Math.min(longAvail(vv,pts[i].k),D.brake*D.m*G*grip)+.5*RHO*D.CdA*vv*vv)/D.m;v[i]=Math.min(v[i],Math.sqrt(vv*vv+2*dec*d));}
+  for(let i=0;i<n-1;i++){const vv=v[i],d=pts[i].d,e=E(i);const F=Math.min(Fd(vv),longAvail(vv,i)*D.rear*1.2*(vv<12?D.launchF||1:1));
+   const a=(F-.5*RHO*D.CdA*vv*vv-.015*D.m*G*e.cs-D.m*G*e.sn)/D.mEff;v[i+1]=Math.min(vl[i+1],Math.sqrt(Math.max(.04,vv*vv+2*a*d)));}
+  if(!o.noBrakeEnd)for(let i=n-2;i>=0;i--){const vv=v[i+1],d=pts[i].d,e=E(i);const dec=(Math.min(longAvail(vv,i),D.brake*D.m*G*grip)+.5*RHO*D.CdA*vv*vv)/D.m+G*e.sn;v[i]=Math.min(v[i],Math.sqrt(Math.max(0,vv*vv+2*dec*d)));}
   return v;};
  let v=pass(o.v0);
  if(!o.standing&&tr.closed){v=pass(v[n-1]);}
@@ -15,7 +19,7 @@ function simLap(D,tr,o){
  let T=0,eW=0,eB=0,slip=0;const zones={};
  for(let i=0;i<n-1;i++){const d=pts[i].d,va=(v[i]+v[i+1])/2;const dt=d/Math.max(va,.2);
   const a=(v[i+1]*v[i+1]-v[i]*v[i])/(2*Math.max(d,1e-6));
-  const Ft=D.mEff*a+.5*RHO*D.CdA*va*va+.015*D.m*G;
+  const Ft=D.mEff*a+.5*RHO*D.CdA*va*va+.015*D.m*G+D.m*G*(pts[i].sn||0); // includes climbing m g sinθ
   if(Ft>0){eW+=Ft*d;pw[i]=Ft*va;}else eB+=-Ft*d;
   ax[i]=a/G;ay[i]=va*va*pts[i].k/G*(pts[i].sg||1);slip+=(ax[i]*ax[i]+ay[i]*ay[i])*d;
   t[i]=T;T+=dt;}

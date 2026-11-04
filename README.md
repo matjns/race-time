@@ -6,6 +6,10 @@
 - **Engineer it** – engine, aero, suspension, tyres and a tech tree. Every change has a trade-off.
 - **Chief Engineer** – your mentor won't just hand you answers. Socratic sign-off gates make you explain *why* a change should work before it goes on the car.
 - **MoTeC-style analytics** – speed traces, sector deltas, throttle/brake overlays and a "top 3 places you lost time" breakdown.
+- **New in 2.2: hills, track limits and barriers**
+  - Every circuit now has crests and dips. Going uphill costs m·g·sinθ. Over a crest the tyres lose load (N = m(g − v²/R)), so there is less grip, and a compression adds grip. Analytics has elevation and vertical-load traces, and Dr. Okafor will ask you about the grip you lost over a crest.
+  - Track limits: if all four wheels cross the white line, that's +1 s. Off for more than 2 s, or 4+ incidents, makes the lap invalid. Incidents appear on the HUD, in the results and in Analytics.
+  - Optional barriers (off by default; toggle them on Test Day or in the pause menu). Hard hits damage the suspension.
 - **Legacy** – graduate, pass the notebook on, and see how the program grows season after season.
 
 | Driving | Garage |
@@ -64,4 +68,6 @@ Unzip `RaceTime-web.zip` and open **`index.html`** in Chrome, Edge, Firefox or S
 ![Controls screen](docs/controls.png)
 
 ## Building from source
+Tests: `node tests/unit.js` (physics, no browser) and `node tests/e2e.js` (headless Chrome via `puppeteer-core`; it saves screenshots to `shots/`).
+
 The game is plain HTML/JS (three.js is vendored in `vendor/`), so there's no build step for the web version. The Mac apps are packaged with Electron: `build.sh` uses `@electron/packager` and writes the zips to `dist/`.

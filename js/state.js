@@ -5,7 +5,7 @@ const LEGACY_CAR={parts:{chassis:'steel',power:'i4',tires:'h10',susp:'basic',bra
  mat:{aarm:{m:'mild',od:22,wall:2},halfshaft:{m:'4130',od:32,wall:8},upright:{m:'4130',t:12},rollhoop:{m:'4130',od:28,wall:3}},
  age:{chassis:3,power:2,tires:1,susp:3,brakes:2,cooling:2,aero:0}};
 function freshState(mode){return{v:2,mode:mode||'career',legacyId:Math.floor(Math.random()*1e9),season:1,units:S?S.units:'imp',rep:10,tech:2,tree:[],rd:{},insight:0,
-  history:[{season:0,total:314,place:6,team:'Legacy Team'}],notebook:[],mastery:{},predictions:[],laps:{},ghosts:{},records:{},debriefs:0,crew:{},drive:{cam:0,tc:false,manual:false},
+  history:[{season:0,total:314,place:6,team:'Legacy Team'}],notebook:[],mastery:{},predictions:[],laps:{},ghosts:{},records:{},debriefs:0,crew:{},drive:{cam:0,tc:false,manual:false,barriers:false},
   last:{season:0,scores:{design:62,cost:58,business:40,accel:61,skid:38,autox:55,endu:0,eff:0},total:314,place:6,of:7,dnf:'Engine overheated (112°C coolant) on lap 14 of endurance',fb:[],notes:[],userNote:'Good luck. She\'s heavy and she cooks herself, but the frame is bulletproof. — outgoing captain',signoffs:[]},
   inherited:null,car:null,rebuilt:{},bonusCash:0,challenges:[],screen:'handoff',comp:null,pitch:'perf'};}
 function newLegacy(mode){
@@ -17,15 +17,20 @@ function newLegacy(mode){
 }
 function storeKey(){return S&&S.mode==='sandbox'?KEY_SBX:KEY;}
 function save(){try{localStorage.setItem(storeKey(),JSON.stringify(S));}catch(e){console.warn('save failed',e&&e.message);}}
-function load(mode){try{const s=JSON.parse(localStorage.getItem(mode==='sandbox'?KEY_SBX:KEY));if(s&&s.v===2){S=s;return true;}}catch(e){}return false;}
+function load(mode){try{const s=JSON.parse(localStorage.getItem(mode==='sandbox'?KEY_SBX:KEY));if(s&&s.v===2){S=s;migrate();return true;}}catch(e){}return false;}
+// v2.2: older v2 saves lack these fields; default them so they keep loading
+function migrate(){S.drive=Object.assign({cam:0,tc:false,manual:false},S.drive||{});if(S.drive.barriers==null)S.drive.barriers=false;if(S.crash&&typeof S.crash!=='object')S.crash=null;}
 function switchMode(mode){if(S)save();const units=S&&S.units;if(!load(mode)){S=null;newLegacy(mode);}if(units)S.units=units;localStorage.setItem('raceTimeMode',mode);}
 function budget(){return S.mode==='sandbox'?1e7:15000+S.rep*250+S.bonusCash;}
 function matChangeCost(){let s=0;const a=carMat(S.car),b=carMat(S.inherited);for(const k in a){if(JSON.stringify(a[k])!==JSON.stringify(b[k])){const st=structModel({[k]:a[k]},compLoads(300,1.5,0,1550,46));s+=Math.round(st.c[k].cost);}}return s;}
 function spent(){let s=0;for(const c of CATS){if(S.car.parts[c]!==S.inherited.parts[c])s+=part(c,S.car.parts[c]).cost;else if(S.rebuilt[c])s+=Math.round(part(c,S.car.parts[c]).cost*.35);}return s+matChangeCost();}
-function syncAge(){S.car.age={};for(const c of CATS)S.car.age[c]=(S.car.parts[c]===S.inherited.parts[c]&&!S.rebuilt[c])?(S.inherited.age[c]||0):0;}
+function syncAge(){S.car.age={};for(const c of CATS)S.car.age[c]=(S.car.parts[c]===S.inherited.parts[c]&&!S.rebuilt[c])?(S.inherited.age[c]||0):0;
+ // barrier crash damage stays with the suspension that took the hit, until it is rebuilt or replaced
+ const cr=S.crash;S.car.crash=cr&&cr.n>0&&cr.susp===S.car.parts.susp&&cr.rb===!!S.rebuilt.susp?Math.min(cr.n,4):0;}
 function reusedCount(){return CATS.filter(c=>S.car.parts[c]===S.inherited.parts[c]).length;}
 function inspect(D){const out=[];const rem=budget()-spent();
  if(rem<0)out.push(['f',`Over budget by ${money(-rem)}.`]);
+ if(S.car.crash>0)out.push(['w',`Barrier damage: the suspension took ${f1(S.car.crash)} hard hit(s) worth of load — ${f0(3*S.car.crash)}% less reliable. Rebuild or replace the suspension in the Garage to clear it.`]);
  if(D.t.wb<1525)out.push(['f',`Wheelbase ${D.t.wb} mm is below the 1525 mm minimum (rule T2.3).`]);
  if(D.t.rh<25)out.push(['f',`Ride height ${D.t.rh} mm: car bottoms out — minimum 25 mm.`]);
  if(D.br.need13&&D.ti.dia!==13)out.push(['f',`${D.br.name} won't fit inside 10" wheels.`]);

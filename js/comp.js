@@ -74,7 +74,7 @@ function rComp(a){
   act.innerHTML=`<div class="row"><span class="mut">${ev==='static'?'Static events judged.':EVN[ev]+' complete and signed off.'}</span><span class="sp"></span><button class="btn pri" id="run">${ev==='endu'?'Finish competition →':'Next event →'}</button></div>`;
   $('#run').onclick=()=>{if(ev==='endu'){go('results');return;}S.comp.step++;save();rComp(a);};return;}
  const drivable=['accel','skid','autox'].includes(ev);const simT=C.me.times[ev];
- const desc={static:'Design, Cost and Business judges are waiting.',accel:'75 m standing start. Best of 2 runs.',skid:'Skidpad: warm-up lap, then a timed lap of the circle.',autox:'One timed lap of the tight autocross, best of 2 runs. +2 s per cone, +20 s for a missed gate.',endu:'22 km endurance, driven by the sim-driver'+(C.me.enduUse?` at a pace calibrated from YOUR autocross (${f1(C.me.enduUse*100)}% of the grip limit)`:'')+'. Reliability rolls every lap.'}[ev];
+ const desc={static:'Design, Cost and Business judges are waiting.',accel:'75 m standing start. Best of 2 runs.',skid:'Skidpad: warm-up lap, then a timed lap of the circle.',autox:'One timed lap of the tight autocross, best of 2 runs. +2 s per cone, +20 s for a missed gate, +1 s each time all four wheels leave the track (off for more than 2 s, or 4+ incidents, = invalid run).',endu:'22 km endurance, driven by the sim-driver'+(C.me.enduUse?` at a pace calibrated from YOUR autocross (${f1(C.me.enduUse*100)}% of the grip limit)`:'')+'. Reliability rolls every lap.'}[ev];
  act.innerHTML=`<div class="row" style="flex-wrap:wrap;gap:10px"><div><h2 style="margin:0">${ev==='static'?'Static events':EVN[ev]}</h2><div class="small mut">${desc}</div></div><span class="sp"></span>
   ${ev!=='static'?`<label class="small">Predict your ${ev==='endu'?'endurance time (s)':'time (s)'} <input type="number" step="any" id="predT" style="width:90px" value="${S.comp.preds[ev]!=null?S.comp.preds[ev]:''}"></label>`:''}
   ${drivable?`<button class="btn pri" id="drv">🏎 Drive it (2 runs)</button><button class="btn" id="run">Sim-driver ▶</button>`:`<button class="btn pri" id="run">${ev==='static'?'Present to the judges ▶':'Run '+EVN[ev]+' ▶'}</button>`}</div>
@@ -97,7 +97,7 @@ function rComp(a){
   if(ev==='endu'){const gl=best.endu.laps.filter(l=>l.r.v);const ghostLaps=[];for(let i=0;i<22;i++)ghostLaps.push(gl[Math.min(i,gl.length-1)]);
    VIEW.play({track:TR.endu,laps:me.endu.laps,accelAfter:1,ghost:{laps:ghostLaps,col:best.col,name:best.name},title:'Endurance',dnf:me.endu.dnf&&`${me.endu.dnf.why} (lap ${me.endu.dnf.lap})`,onDone:finish});}};
  const db=$('#drv');if(db)db.onclick=()=>{takePred();const trk=EV_TRK[ev];const best=bestRival(C,ev);const rl=ev!=='skid'?[{L:lapFromSim(best.D,trk,ev==='accel'?best.accR:best.axR,best.name),car:best.car,D:best.D,color:parseInt(best.col.slice(1),16),name:best.name}]:[];
-  Drive.start({track:trk,D:C.me.D,car:S.car,title:`Competition · ${EVN[ev]}`,mode:'comp',runs:ev==='skid'?1:2,ghost:(S.ghosts||{})[trk]||null,refs:rl,warmTires:true,
+  Drive.start({track:trk,D:C.me.D,car:S.car,title:`Competition · ${EVN[ev]}`,mode:'comp',barriers:!!S.drive.barriers,runs:ev==='skid'?1:2,ghost:(S.ghosts||{})[trk]||null,refs:rl,warmTires:true,
    onExit:(bestRun,info)=>{if(bestRun){S.comp.driven[ev]={t:bestRun.time};COMP_LAPS[ev]=bestRun;finish();}else if(info&&info.failures&&info.failures.length){S.comp.driven[ev]={t:null,dnf:true};finish();}else{rComp(a);}}});};
 }
 function revealedEvents(){const r=S.comp.revealed;const evs=[];if(r>=0)evs.push('design','cost','business');for(let i=1;i<=r;i++){evs.push(STEPS[i]);if(STEPS[i]==='endu')evs.push('eff');}return evs;}
@@ -139,5 +139,5 @@ function beginNext(C,place,notes){const me=C.me;
  S.inherited={parts:deep(S.car.parts),tune:deep(S.car.tune),eng:deep(S.car.eng||{}),aero:deep(S.car.aero||{}),sus:deep(S.car.sus||{}),mat:deep(S.car.mat||{}),age};
  // this season's best laps become next season's ghosts
  S.ghosts=Object.assign({},S.ghosts||{},S.laps||{});S.laps={};
- S.car=deep(S.inherited);S.rebuilt={};S.bonusCash=0;S.comp=null;S.userNote='';S.rep=Math.max(0,rep);S.tech+=2;
+ S.car=deep(S.inherited);S.rebuilt={};S.crash=null;S.bonusCash=0;S.comp=null;S.userNote='';S.rep=Math.max(0,rep);S.tech+=2;
  S.season++;S.challenges=genChallenges(S.season,carried,S.car);S.screen='handoff';COMP=null;for(const k in COMP_LAPS)delete COMP_LAPS[k];save();go('handoff');toast(`Season ${S.season} begins. The car is now someone else's problem — yours.`);}

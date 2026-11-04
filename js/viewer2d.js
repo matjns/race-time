@@ -9,7 +9,7 @@ function Viewer(host,teleHost){
  host.querySelectorAll('#spdT button').forEach(b=>b.onclick=()=>setSpd(+b.dataset.x));
  host.querySelector('#vSkip').onclick=()=>{if(spec){tau=spec.total;}};
  setSpd(1);
- teleHost.innerHTML=`<div class="tele">${[['spd','Speed'],['lat','Lateral g'],['lon','Long g'],['lap','Lap'],['lt','Lap time'],['best','Best lap'],['cool','Coolant'],['tire','Tire temp']].map(([k,l])=>`<div class="t"><small>${l}</small><b id="tl_${k}">—</b></div>`).join('')}<div class="t wide"><small>Tire wear</small><div class="bar" style="height:9px"><i id="tl_wear" style="width:0"></i></div><div class="small mut" id="tl_wtxt" style="margin-top:3px">—</div></div></div>`;
+ teleHost.innerHTML=`<div class="tele">${[['spd','Speed'],['lat','Lateral g'],['lon','Long g'],['lap','Lap'],['lt','Lap time'],['best','Best lap'],['cool','Coolant'],['tire','Tire temp'],['elev','Elevation']].map(([k,l])=>`<div class="t"><small>${l}</small><b id="tl_${k}">—</b></div>`).join('')}<div class="t wide"><small>Tire wear</small><div class="bar" style="height:9px"><i id="tl_wear" style="width:0"></i></div><div class="small mut" id="tl_wtxt" style="margin-top:3px">—</div></div></div>`;
  function idle(title){stop();spec=null;drawIdle(title);}
  function drawIdle(title){cx.fillStyle='#0c1410';cx.fillRect(0,0,cv.width,cv.height);grid();cx.fillStyle='#8b97a8';cx.font='600 34px -apple-system,Segoe UI,sans-serif';cx.textAlign='center';cx.fillText(title||'Choose a test to run',cv.width/2,cv.height/2);tx.clearRect(0,0,tc.width,tc.height);}
  function grid(){cx.strokeStyle='rgba(255,255,255,.035)';cx.lineWidth=1;for(let x=0;x<cv.width;x+=50){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,cv.height);cx.stroke();}for(let y=0;y<cv.height;y+=50){cx.beginPath();cx.moveTo(0,y);cx.lineTo(cv.width,y);cx.stroke();}}
@@ -46,7 +46,13 @@ function Viewer(host,teleHost){
    placed.push(best.r);const{X,Y}=best;
    g.strokeStyle='rgba(201,211,224,.35)';g.lineWidth=2;g.beginPath();g.moveTo(tf.X(p.x),tf.Y(p.y));g.lineTo(X,Y-3);g.stroke();
    g.fillStyle='rgba(10,13,18,.82)';g.fillRect(X-tw2/2,Y-17,tw2,28);g.fillStyle=z.label==='T3'?'#ffb020':'#c9d3e0';g.fillText(txt,X,Y+5);}
-  g.fillStyle='#8b97a8';g.textAlign='left';g.font='600 22px -apple-system,Segoe UI,sans-serif';g.fillText(tr.name+' · '+(tr.len>=1000?f2(tr.len/1000)+' km':f0(tr.len)+' m'),24,40);
+  // elevation features: ▲ crest / ▼ dip with vertical radius
+  g.font='700 18px -apple-system,Segoe UI,sans-serif';g.textAlign='center';
+  for(const f of tr.feats||[]){if(f.R>700)continue;const p=tr.pts[f.iPk];const X=tf.X(p.x),Y=tf.Y(p.y);const cr=f.type==='crest';
+   g.fillStyle=cr?'#ff9f43':'#4ea1ff';g.beginPath();if(cr){g.moveTo(X,Y-9);g.lineTo(X+8,Y+6);g.lineTo(X-8,Y+6);}else{g.moveTo(X,Y+9);g.lineTo(X+8,Y-6);g.lineTo(X-8,Y-6);}g.closePath();g.fill();
+   g.fillStyle='rgba(10,13,18,.75)';const zn=j=>tr.pts[tr.closed?(j+tr.pts.length)%tr.pts.length:clamp(j,0,tr.pts.length-1)].z;const ext=cr?f.z>Math.max(zn(f.iPk-40),zn(f.iPk+40))+.3:f.z<Math.min(zn(f.iPk-40),zn(f.iPk+40))-.3; // true hilltop / valley floor gets its height
+   const t=`${cr?'crest':'dip'} ${ext?(f.z>=0?'+':'−')+f1(Math.abs(f.z))+' m · ':''}R${f0(f.R)}`;const tw3=g.measureText(t).width+10;g.fillRect(X-tw3/2,Y+10,tw3,22);g.fillStyle=cr?'#ffc078':'#9ccfff';g.fillText(t,X,Y+27);}
+  g.fillStyle='#8b97a8';g.textAlign='left';g.font='600 22px -apple-system,Segoe UI,sans-serif';g.fillText(tr.name+' · '+(tr.len>=1000?f2(tr.len/1000)+' km':f0(tr.len)+' m')+(tr.zmax-tr.zmin>.05?` · elevation ${f1(tr.zmax-tr.zmin)} m`:' · level'),24,40);
   return c;}
  function at(r,tl){const t=r.t;let lo=0,hi=t.length-1;if(tl>=t[hi])return{i:hi,f:0};while(hi-lo>1){const m=(lo+hi)>>1;if(t[m]<=tl)lo=m;else hi=m;}const f=(tl-t[lo])/Math.max(1e-6,t[lo+1]-t[lo]);return{i:lo,f:clamp(f,0,1)};}
  function pos(tr,r,tl){const{i,f}=at(r,tl);const a=tr.pts[i],b=tr.pts[Math.min(i+1,tr.pts.length-1)];return{x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,h:a.h,v:r.v[i]+(r.v[Math.min(i+1,r.v.length-1)]-r.v[i])*f,ax:r.ax[i],ay:r.ay[i],i};}
@@ -77,11 +83,16 @@ function Viewer(host,teleHost){
  function tele(p,lap,k,tl){const set=(id,v)=>{const e=document.getElementById('tl_'+id);if(e)e.textContent=v;};
   set('spd',spd(p.v));set('lat',f2(Math.abs(p.ay))+' g');set('lon',(p.ax>=0?'+':'')+f2(p.ax)+' g');set('lap',`${k+1} / ${spec.laps.length}`);set('lt',fmtT(tl));
   const done=spec.laps.slice(0,k+(tl>=lap.r.time-1e-6?1:0));set('best',done.length?fmtT(Math.min(...done.map(l=>l.r.time))):'—');
+  const pt=spec.track.pts[p.i]||{};set('elev',`${(pt.z>=0?'+':'')+f1(pt.z||0)} m${Math.abs(pt.gr||0)>.01?(pt.gr>0?' ▲':' ▼')+f0(Math.abs(pt.gr)*100)+'%':''}`);
   set('cool',lap.coolT!=null?f0(lap.coolT)+' °C':'—');set('tire',lap.tireT!=null?f0(lap.tireT)+' °C':'—');
   const w=lap.wear!=null?lap.wear:0;const e=document.getElementById('tl_wear');if(e){e.style.width=clamp(w*100,0,100)+'%';e.parentElement.className='bar'+(w<.7?' g':'');}
   const wt=document.getElementById('tl_wtxt');if(wt)wt.textContent=lap.wear!=null?`${f1(w*100)}% worn · ${f2((lap.wl||0)*100)}%/lap`:'—';
   const cc=document.getElementById('tl_cool');if(cc)cc.style.color=lap.coolT>105?'#ff6b63':'';}
- function trace(r,i,gr){const W=tc.width,H=tc.height;tx.clearRect(0,0,W,H);const vm=Math.max(...r.v,gr?Math.max(...gr.v):0)*1.08;const n=r.v.length;
+ function trace(r,i,gr){const W=tc.width,H=tc.height;tx.clearRect(0,0,W,H);
+  // elevation profile as a filled silhouette behind the speed trace
+  const tp=spec&&spec.track&&spec.track.pts;if(tp&&spec.track.zmax-spec.track.zmin>.05){const z0=spec.track.zmin,z1=spec.track.zmax,nn=tp.length;tx.fillStyle='rgba(181,228,140,.13)';tx.beginPath();tx.moveTo(0,H);
+   for(let j=0;j<nn;j+=2){tx.lineTo(j/(nn-1)*W,H-6-(tp[j].z-z0)/(z1-z0)*(H*.42));}tx.lineTo(W,H);tx.closePath();tx.fill();
+   tx.fillStyle='rgba(181,228,140,.7)';tx.font='600 16px -apple-system,sans-serif';tx.textAlign='left';tx.fillText(`elevation (${f1(z1-z0)} m range)`,12,H-10);}const vm=Math.max(...r.v,gr?Math.max(...gr.v):0)*1.08;const n=r.v.length;
   const line=(arr,col,lw)=>{tx.strokeStyle=col;tx.lineWidth=lw;tx.beginPath();for(let j=0;j<arr.length;j+=2){const X=j/(arr.length-1)*W,Y=H-8-arr[j]/vm*(H-24);j?tx.lineTo(X,Y):tx.moveTo(X,Y);}tx.stroke();};
   if(gr)line(gr.v,'rgba(63,169,245,.55)',2);line(r.v,'rgba(255,255,255,.25)',2);
   tx.strokeStyle='#e10600';tx.lineWidth=3;tx.beginPath();for(let j=0;j<=i;j+=2){const X=j/(n-1)*W,Y=H-8-r.v[j]/vm*(H-24);j?tx.lineTo(X,Y):tx.moveTo(X,Y);}tx.stroke();

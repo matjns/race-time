@@ -1,7 +1,7 @@
 'use strict';
 /* ================= ANALYTICS WORKSPACE (MoTeC-style) ================= */
 const Analytics=(()=>{
- const st={tab:'traces',A:null,B:null,chs:['delta','v','thr','brk','st','g','ay'],mapCh:'v',cursor:null,zone:null,trk:'autox'};
+ const st={tab:'traces',A:null,B:null,chs:['delta','v','z','nz','thr','brk','st','g','ay'],mapCh:'v',cursor:null,zone:null,trk:'autox'};
  const TABS=[['traces','Traces & delta'],['map','Track map'],['gg','g-g diagram'],['vr','Speed vs radius'],['sect','Sectors'],['dyno','Dyno & gears'],['energy','Energy'],['rel','Reliability'],['career','Career trends'],['break','Lap-time breakdown']];
  function refSim(trk){const D=curD();const tr=TR[trk];const r=simLap(D,tr,{v0:0,use:STYLES[S.car.tune.style].use,standing:!tr.closed||trk==='autox'});return lapFromSim(D,trk,r,'sim-driver');}
  function lastSeasonSim(trk){const Di=derive(S.inherited,S.rd);const tr=TR[trk];const r=simLap(Di,tr,{v0:0,use:.965,standing:trk==='autox'||!tr.closed});return lapFromSim(Di,trk,r,'last-season car (sim)');}
@@ -9,7 +9,7 @@ const Analytics=(()=>{
  function resolve(opt){if(!opt)return null;if(opt.L)return opt.L;if(opt.sim)return refSim(opt.sim);if(opt.last)return lastSeasonSim(opt.last);return null;}
  function ensure(){if(!st.A){const ses=(typeof Drive!=='undefined'&&Drive.session.length)?Drive.session[Drive.session.length-1]:null;st.A=ses||S.laps&&Object.values(S.laps)[0]||refSim('autox');}
   if(!st.B||st.B.track!==st.A.track){st.B=(S.ghosts||{})[st.A.track]||(S.records||{})[st.A.track]&&S.records[st.A.track]!==st.A&&S.records[st.A.track]||refSim(st.A.track);}st.trk=st.A.track;}
- function render(a){ensure();const opts=options();const A=st.A,B=st.B;
+ function render(a){ensure();elevCh(st.A);if(st.B)elevCh(st.B);const opts=options();const A=st.A,B=st.B;
   a.innerHTML=`<div class="row" style="margin-bottom:10px;flex-wrap:wrap;gap:8px"><div><h1>Analytics</h1><div class="sub" style="margin:0">Data-driven engineering: traces vs distance, overlays, maps, envelopes. Hover a trace to sync the cursor.</div></div><span class="sp"></span>
    <label class="small">Lap A <select id="anA">${opts.map((o,i)=>`<option value="${i}" ${o.L===A?'selected':''}>${o.lab}</option>`).join('')}</select></label>
    <label class="small">Reference B <select id="anB"><option value="-1">— none —</option>${opts.map((o,i)=>`<option value="${i}" ${o.L===B?'selected':''}>${o.lab}</option>`).join('')}</select></label>
@@ -25,7 +25,7 @@ const Analytics=(()=>{
   a.querySelector('#anCsv').onclick=()=>csv(A);
   insights(a.querySelector('#insights'));body(a.querySelector('#anBody'));}
  function ensureNullB(){}
- function lapLab(L){return`${TR[L.track].name} · ${L.src} · S${L.season} · <b>${fmtT(L.time)}</b>${L.cones?` (${L.cones} cones)`:''}`;}
+ function lapLab(L){return`${TR[L.track].name} · ${L.src} · S${L.season} · <b>${fmtT(L.time)}</b>${L.cones?` (${L.cones} cones)`:''}${L.tl?` <span class="dn">(${L.tl} track limit${L.tl>1?'s':''} +${f0(L.tlPen)} s)</span>`:''}${L.invalid?' <span class="pill r">invalid</span>':''}${L.walls&&L.walls.length?` · ${L.walls.length} wall hit(s)`:''}${L.elev?'':' <span class="mut">(flat track, pre-2.2)</span>'}`;}
  function insights(el){const A=st.A,B=st.B,D=curD();const ops=[];
   const sim=refSim(A.track);const sA=sectorTimes(A,A.track),sS=sectorTimes(sim,A.track);
   sA.forEach((s,i)=>{const d=s.t-sS[i].t;if(d>.05)ops.push({sec:s.l,dt:d,t:`<b>${s.l}</b>: ${d.toFixed(2)} s slower than the sim-driver's limit lap in your own car — driving opportunity.`,jump:{ch:'v',i0:s.i0,i1:s.i1}});});
@@ -58,11 +58,15 @@ const Analytics=(()=>{
     if(k==='delta'){g.strokeStyle='#334';g.beginPath();g.moveTo(60,Y(0));g.lineTo(W-10,Y(0));g.stroke();}
     if(b){g.strokeStyle='rgba(255,255,255,.45)';g.lineWidth=1.3;g.beginPath();b.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));g.stroke();}
     g.strokeStyle=meta.col;g.lineWidth=2;g.beginPath();a.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));g.stroke();});
+   // crest/dip labels on the elevation row, track-limit incidents & wall hits across all rows
+   const zr=chs.indexOf('z');if(zr>=0){g.font='11px sans-serif';g.textAlign='center';for(const f of TR[A.track].feats||[]){if(f.R>700)continue;const y0=10+zr*110;g.fillStyle=f.type==='crest'?'#ff9f43':'#4ea1ff';g.fillText(`${f.type==='crest'?'▲ crest':'▼ dip'} R${f0(f.R)} m`,X(f.iPk),f.type==='crest'?y0+24:y0+90);}}
+   for(const e of A.limits||[]){g.strokeStyle='rgba(255,77,77,.85)';g.setLineDash([4,3]);g.lineWidth=1.5;g.beginPath();g.moveTo(X(e.i),4);g.lineTo(X(e.i),H-24);g.stroke();g.setLineDash([]);g.fillStyle='#ff4d4d';g.font='bold 11px sans-serif';g.textAlign='left';g.fillText(`${e.kind==='OC'?'OFF COURSE':'TRACK LIMITS'} +${e.pen}s`,X(e.i)+3,14);}
+   for(const e of A.walls||[]){g.fillStyle='#ffb020';g.font='bold 11px sans-serif';g.textAlign='left';g.fillText(`▮ wall ${f1(e.vn)} m/s`,X(e.i)+3,28);}
    g.fillStyle='#5b6676';g.textAlign='center';for(let d=0;d<n;d+=100)g.fillText(d+' m',X(d),H-6);
    for(const z of TR[A.track].zones){if(!z.r)continue;g.fillStyle='rgba(201,211,224,.55)';g.fillText(z.label,X((z.i0+z.i1)/2),H-18);}
    if(st.cursor!=null){g.strokeStyle='#fff';g.lineWidth=1;g.beginPath();g.moveTo(X(st.cursor),0);g.lineTo(X(st.cursor),H-24);g.stroke();}};
   const mp=el.querySelector('#trMap');const mapF=miniMap(mp,A.track,A.ch[st.mapCh]||A.ch.v);
-  const read=()=>{const i=st.cursor;if(i==null)return;mapF(i);el.querySelector('#trRead').innerHTML=`<b>${i} m</b>`+[...TCH].map(c=>`<div class="stat"><span style="color:${c.col}">${c.l}</span><span>${fmtCh(c,A.ch[c.k][i])}${B?` <span class="mut">/ ${fmtCh(c,B.ch[c.k][i])}</span>`:''}</span></div>`).join('')+(dlt?`<div class="stat"><span style="color:#ffd166">Delta</span><span>${dlt[i]>0?'+':''}${dlt[i].toFixed(3)} s</span></div>`:'');};
+  const read=()=>{const i=st.cursor;if(i==null)return;mapF(i);el.querySelector('#trRead').innerHTML=`<b>${i} m</b>`+[...TCH].map(c=>`<div class="stat"><span style="color:${c.col}">${c.l}</span><span>${fmtCh(c,(A.ch[c.k]||[])[i])}${B?` <span class="mut">/ ${fmtCh(c,(B.ch[c.k]||[])[i])}</span>`:''}</span></div>`).join('')+(dlt?`<div class="stat"><span style="color:#ffd166">Delta</span><span>${dlt[i]>0?'+':''}${dlt[i].toFixed(3)} s</span></div>`:'');};
   cv.onmousemove=e=>{const r=cv.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*W;st.cursor=clamp(Math.round((x-60)/(W-70)*(n-1)),0,n-1);drawAll();read();};
   if(st.cursor==null)st.cursor=st.zone?st.zone[0]:Math.floor(n/3);drawAll();read();}
  function fmtCh(c,v){if(v==null)return'—';if(c.k==='v')return spd1(v);if(c.k==='thr'||c.k==='brk')return f0(v*100)+'%';if(c.k==='rpm')return f0(v);if(c.k==='g')return f0(v);return f2(v)+(c.u&&c.u!=='spd'?' '+c.u:'');}
@@ -77,7 +81,7 @@ const Analytics=(()=>{
  /* ---- track map colored by channel ---- */
  function map(el){const A=st.A;el.innerHTML=`<div class="row small" style="gap:8px;margin-bottom:8px">Color by <select id="mapCh">${[...TCH,{k:'delta',l:'Delta vs B'}].map(c=>`<option value="${c.k}" ${st.mapCh===c.k?'selected':''}>${c.l}</option>`).join('')}</select></div><canvas id="bigMap" width="1100" height="560" style="width:100%;background:#0b1119;border-radius:8px"></canvas>`;
   el.querySelector('#mapCh').onchange=e=>{st.mapCh=e.target.value;map(el);};
-  const vals=st.mapCh==='delta'?(st.B?Array.from(deltaTrace(A,st.B)).map((d,i,a)=>i?d-a[i-1]:0):A.ch.v):A.ch[st.mapCh];miniMap(el.querySelector('#bigMap'),A.track,vals,(TCH.find(c=>c.k===st.mapCh)||{l:'Δ time gained/lost'}).l);}
+  const vals=st.mapCh==='delta'?(st.B?Array.from(deltaTrace(A,st.B)).map((d,i,a)=>i?d-a[i-1]:0):A.ch.v):(A.ch[st.mapCh]||A.ch.v);miniMap(el.querySelector('#bigMap'),A.track,vals,(TCH.find(c=>c.k===st.mapCh)||{l:'Δ time gained/lost'}).l);}
  /* ---- g-g ---- */
  function gg(el){const A=st.A,D=curD();el.innerHTML=`<div style="display:grid;grid-template-columns:560px 1fr;gap:14px"><canvas id="ggc" width="560" height="560" style="background:#0b1119;border-radius:8px;width:100%"></canvas><div class="small"><h3>Reading the g-g diagram</h3><p>Each dot is one metre of lap A: lateral g (x) vs longitudinal g (y). The tires can deliver μ×load in <i>any</i> direction — the <b>traction circle</b>. Downforce grows the circle with speed (rings shown at 10, 20, 30 m/s).</p><p>Dots well inside the ring = unused grip. Dots on the ring with a gap at the diagonals = not trail-braking / not combining.</p><div class="phys">a<sub>max</sub>(v) = μ·(1 + ρC<sub>L</sub>Av²/2mg) → ${[10,20,30].map(v=>`${v} m/s: <b>${f2(latG(D,v))} g</b>`).join(' · ')}</div><p>Utilisation: <b>${f0(util(A,D)*100)}%</b> of the available envelope on average in corners.</p></div></div>`;
   const c=el.querySelector('#ggc'),g=c.getContext('2d'),W=c.width;const s=W/2/2.6;const C=W/2;g.strokeStyle='#1d2633';for(let r=.5;r<=2.5;r+=.5){g.beginPath();g.arc(C,C,r*s,0,7);g.stroke();g.fillStyle='#3b4757';g.fillText(r+' g',C+r*s+2,C-2);}
@@ -124,9 +128,11 @@ const Analytics=(()=>{
   const cols=['#4ea1ff','#2ecc71','#ffb020','#ff7ab6','#c39bff'];D.gearR.forEach((R,gi)=>{g.strokeStyle=cols[gi%5];g.lineWidth=2.5;g.beginPath();let first=true;for(let v=.5;v<=D.gearV[gi];v+=.25){const rpm=v/D.rw*R*60/(2*Math.PI);if(D.ice&&rpm<2000)continue;const F=engTorque(D,rpm)*R*.9/D.rw;first?g.moveTo(X(v),Y(Math.min(F,Fmax))):g.lineTo(X(v),Y(Math.min(F,Fmax)));first=false;}g.stroke();g.fillStyle=cols[gi%5];g.fillText('G'+(gi+1),X(D.gearV[gi])-14,Y(Math.min(engTorque(D,D.redline*.95)*R*.9/D.rw,Fmax))-6);});
   g.fillStyle='#2ecc71';g.fillText('rear traction limit μ·N·rear',44,16);g.fillStyle='#8b97a8';g.fillText('P/v',220,16);g.fillStyle='#ff4d4d';g.fillText('drag + rolling',260,16);}
  /* ---- energy ---- */
- function energy(el){const A=st.A,D=curD();const n=A.ch.v.length;let Ed=0,Er=0,Eb=0,Ew=0;const pts=TR[A.track].pts;
-  for(let i=0;i<n-1;i++){const v=(A.ch.v[i]+A.ch.v[i+1])/2,d=pts[i].d||1;const dKE=.5*D.mEff*(A.ch.v[i+1]**2-A.ch.v[i]**2);const fd=.5*RHO*D.CdA*v*v*d,fr=.015*D.m*G*d;Ed+=fd;Er+=fr;const net=dKE+fd+fr;if(net>0)Ew+=net;else Eb+=-net;}
-  const fuel=Ew/D.eff;const rows=[['Aerodynamic drag',Ed,'#ff7ab6'],['Rolling resistance',Er,'#ffb020'],['Braking (heat in rotors)',Eb,'#ff4d4d'],['Kinetic energy left at the line',Math.max(0,Ew-Ed-Er-Eb),'#4ea1ff']];const tot=rows.reduce((a,r)=>a+r[1],0)||1;
+ function energy(el){const A=st.A,D=curD();const n=A.ch.v.length;let Ed=0,Er=0,Eb=0,Ew=0,Eup=0;const pts=TR[A.track].pts;
+  for(let i=0;i<n-1;i++){const v=(A.ch.v[i]+A.ch.v[i+1])/2,d=pts[i].d||1;const dKE=.5*D.mEff*(A.ch.v[i+1]**2-A.ch.v[i]**2);const fd=.5*RHO*D.CdA*v*v*d,fr=.015*D.m*G*d;
+   const dPE=D.m*G*(((pts[i+1]||pts[i]).z||0)-(pts[i].z||0)); // m g Δz: climbing stores energy, descending returns it
+   Ed+=fd;Er+=fr;if(dPE>0)Eup+=dPE;const net=dKE+fd+fr+dPE;if(net>0)Ew+=net;else Eb+=-net;}
+  const fuel=Ew/D.eff;const rows=[['Aerodynamic drag',Ed,'#ff7ab6'],['Rolling resistance',Er,'#ffb020'],['Climbing hills (m g Δz, paid back downhill)',Eup,'#b5e48c'],['Braking (heat in rotors)',Eb,'#ff4d4d'],['Kinetic energy left at the line',Math.max(0,Ew-Ed-Er-Eb),'#4ea1ff']];const tot=rows.reduce((a,r)=>a+r[1],0)||1;
   el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div><h3>Where the wheel energy goes (lap A)</h3>${rows.map(r=>`<div class="stat"><span><span style="color:${r[2]}">■</span> ${r[0]}</span><span>${f1(r[1]/1000)} kJ (${f0(r[1]/tot*100)}%)</span></div><div class="bar"><i style="width:${r[1]/tot*100}%;background:${r[2]}"></i></div>`).join('')}
    <div class="stat" style="margin-top:10px"><span class="mut">Energy at the wheels</span><span>${f1(Ew/1000)} kJ</span></div><div class="stat"><span class="mut">${D.pw.ev?'Battery':'Fuel'} energy (÷ η = ${f2(D.eff)})</span><span>${f1(fuel/1000)} kJ = ${f2(fuel/3.6e6*1000)} Wh</span></div><div class="stat"><span class="mut">Engine waste heat (≈ fuel − wheel)</span><span>${f1((fuel-Ew)/1000)} kJ</span></div></div>
    <div class="small"><h3>Physics</h3><div class="phys">Drag work = Σ ½ρC<sub>D</sub>A v²·Δs<br>Rolling = C<sub>rr</sub>·m·g·Δs (C<sub>rr</sub> = 0.015)<br>Braking = kinetic energy removed ½m(v₁² − v₂²) beyond drag & rolling</div><p>Braking energy is the share an EV can partly recover with regen. Every kJ of drag costs you twice — once in fuel, once in top speed.</p></div></div>`;}
